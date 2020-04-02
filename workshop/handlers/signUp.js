@@ -2,7 +2,6 @@ const getBody = require("../getBody");
 const model = require("../database/db");
 
 function get(request, response) {
-  model.getUsers().then(console.log);
   response.writeHead(200, { "content-type": "text/html" });
   response.end(`
     <h1>Create an account</h1>

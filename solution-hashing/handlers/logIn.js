@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const getBody = require("../getBody");
 const model = require("../database/db");
 
@@ -24,7 +25,11 @@ function post(request, response) {
       model
         .getUser(email)
         .then(dbUser => {
-          if (dbUser.password !== password) {
+          const hashedPassword = crypto
+            .createHash("sha256")
+            .update(password)
+            .digest("hex");
+          if (dbUser.password !== hashedPassword) {
             throw new Error("Password mismatch");
           } else {
             response.writeHead(200, { "content-type": "text/html" });

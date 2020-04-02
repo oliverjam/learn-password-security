@@ -1,16 +1,17 @@
+const crypto = require("crypto");
 const getBody = require("../getBody");
 const model = require("../database/db");
 
 function get(request, response) {
   response.writeHead(200, { "content-type": "text/html" });
   response.end(`
-    <h1>Log in</h1>
-    <form action="log-in" method="POST">
+    <h1>Create an account</h1>
+    <form action="sign-up" method="POST">
       <label for="email">Email</label>
       <input type="email" id="email" name="email">
       <label for="password">Password</label>
       <input type="password" id="password" name="password">
-      <button>Log in</button>
+      <button>Sign up</button>
     </form>
   `);
 }
@@ -21,24 +22,24 @@ function post(request, response) {
       const user = new URLSearchParams(body);
       const email = user.get("email");
       const password = user.get("password");
+      const hashedPassword = crypto
+        .createHash("sha256")
+        .update(password)
+        .digest("hex");
       model
-        .getUser(email)
-        .then(dbUser => {
-          if (dbUser.password !== password) {
-            throw new Error("Password mismatch");
-          } else {
-            response.writeHead(200, { "content-type": "text/html" });
-            response.end(`
-            <h1>Welcome back, ${email}</h1>
+        .createUser({ email, password: hashedPassword })
+        .then(() => {
+          response.writeHead(200, { "content-type": "text/html" });
+          response.end(`
+           <h1>Thanks for signing up, ${email}</h1>
           `);
-          }
         })
         .catch(error => {
           console.error(error);
-          response.writeHead(401, { "content-type": "text/html" });
+          response.writeHead(500, { "content-type": "text/html" });
           response.end(`
             <h1>Something went wrong, sorry</h1>
-            <p>User not found</p>
+            <p>${error}</p> 
           `);
         });
     })
