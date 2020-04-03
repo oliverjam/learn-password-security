@@ -302,7 +302,7 @@ function post(request, response) {
 
 ## BCrypt
 
-It's annoying having to implement all this stuff ourselves. It's likely we'll mess something up. There are also better-designed algorithms for password hashing. A popular one is called BCrypt. It's designed specifically for passwords, and (in computer terms) is _very_ slow. This isn't noticeable to users but makes a brute-force attacker much more difficult for a hacker.
+It's annoying having to implement all this stuff ourselves. It's likely we'll mess something up. There are also better-designed algorithms for password hashing. A popular one is called BCrypt. It's designed specifically for passwords, and (in computer terms) is _very_ slow. This isn't noticeable to users but makes a brute-force attack much more difficult for a hacker.
 
 BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. A BCrypt hash of "cupcake" is a few different bits of information separated by `$` or `.` symbols:
 
