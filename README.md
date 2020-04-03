@@ -25,6 +25,8 @@ Data is stored in the `workshop/database/db.json` file. You should see users add
 
 The `POST /log-in` handler finds the user with a matching email in the "database", then compares the submitted password with the stored user's password. If they match the user is "logged in".
 
+Don't spend too long on each challenge: you won't be implementing password hashing yourself in a real app as it's complicated and dangerous. The steps are there as a learning exercise—the final challenge using the `bcryptjs` libraryis how you'd actually store passwords in a real project.
+
 ## Plaintext passwords
 
 Once you've started the dev server open http://localhost:3000 in your browser. You should see a sign up form—use this to create an account, then check the `workshop/database/db.json` file. This is simulating a real database so we can see how our user data is stored.
