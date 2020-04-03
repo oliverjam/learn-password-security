@@ -304,12 +304,6 @@ function post(request, response) {
 
 It's annoying having to implement all this stuff ourselves. It's likely we'll mess something up. There are also better-designed algorithms for password hashing. A popular one is called BCrypt. It's designed specifically for passwords, and (in computer terms) is _very_ slow. This isn't noticeable to users but makes a brute-force attack much more difficult for a hacker.
 
-BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. A BCrypt hash of "cupcake" is a few different bits of information separated by `$` or `.` symbols:
-
-```
-$2a$10$MFOIdSobXg.x3ZUfrB2VX.C49DYocYGtBQVJ78ZsC2YwgrALIn1oC
-```
-
 ### `bcryptjs` challenge
 
 We'll be using the [`bcryptjs`](https://www.npmjs.com/package/bcryptjs) library (avoid the `bcrypt` one, which has C++ dependencies and doesn't work on some systems).
@@ -321,7 +315,11 @@ bcrypt
   .genSalt(10)
   .then(salt => bcrypt.hash(password, salt))
   .then(hash => console.log(hash));
+// "$2a$10$MFOIdSobXg.x3ZUfrB2VX.C49DYocYGtBQVJ78ZsC2YwgrALIn1oC"
+// hash contains a few different chunks of info separated by $ or .
 ```
+
+BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. You can store the hash that `bcrypt.createHash()` gives you as is.
 
 - Run `npm install bcryptjs` to install the library
 - Use `bcrypt.genSalt()` and `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
