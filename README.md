@@ -97,3 +97,58 @@ Then we need to make our logging in comparison work.
 - Edit the `post` function in `workshop/handlers/logIn.js`
 - We need to hash the submitted password before we compare it to the stored hash
 - You should be able to log in as the user you just created
+
+<details>
+<summary>Quick solution</summary>
+
+```diff
+// signUp.js
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
++      const hashedPassword = crypto
++        .createHash("sha256")
++        .update(password)
++        .digest("hex");
+      model
++        .createUser({ email, password: hashedPassword })
+        .then(() => {
+          response.writeHead(200, { "content-type": "text/html" });
+          response.end(`
+           <h1>Thanks for signing up, ${email}</h1>
+          `);
+        })
+        // plus error handling
+```
+
+```diff
+// logIn.js
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
+      model
+        .getUser(email)
+        .then(dbUser => {
++          const hashedPassword = crypto
++            .createHash("sha256")
++            .update(password)
++            .digest("hex");
++          if (dbUser.password !== hashedPassword) {
++            throw new Error("Password mismatch");
++          } else {
+            response.writeHead(200, { "content-type": "text/html" });
+            response.end(`
+            <h1>Welcome back, ${email}</h1>
+          `);
+          }
+        })
+        // plus error handling
+```
+
+</details>
