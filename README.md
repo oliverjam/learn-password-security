@@ -152,3 +152,67 @@ function post(request, response) {
 ```
 
 </details>
+
+## Rainbow tables
+
+There are still some issues with our hashed passwords. The only way for a hacker with a stolen database to figure out the passwords is with a "brute force" attack. This is where they use software to automatically try a huge list of possible passwords, hashing each one then comparing it to the passwords in the database.
+
+Remember a good hash algorithm is supposed to be slow. This limits a hacker who has stolen a database—the brute force attack will take a long time. One way around this is to use "rainbow tables". This is a pre-hashed list of common words so the hacker doesn't have to hash each password to find a match in the database.
+
+### Salting challenge
+
+We can prevent the use of rainbow tables by "salting" our passwords. This means adding a random string to the password before hashing it. That will ensure our password hashes are unique to our app, and so won't show up in any rainbow tables.
+
+For example "cupcake" hashed using SHA256 is always `"b0eaeafbf3..."`. That means the hash can be published in rainbow tables. If we instead add a salt to the password to make `"kjnafn9nbjka2kjn.cupcake"` then the hash will be `"6bc8571635..."`, which won't appear in any rainbow table.
+
+- Edit the `post` function in `workshop/handlers/signUp.js`
+- Add a random string to the password before you hash it so you you're storing a unique hash in the database
+- Edit the `post` function in `workshop/handlers/logIn.js`
+- Add a random string to the password before you hash it so you can correctly compare it to the hash in the database
+
+<details>
+<summary>Quick solution</summary>
+
+```diff
+// signUp.js
++const SALT = "u893qhdnk&892jn9";
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
+      const hashedPassword = crypto
+        .createHash("sha256")
++        .update(SALT + password)
+        .digest("hex");
+      model
+        .createUser({ email, password: hashedPassword })
+        // ...
+```
+
+```diff
+// logIn.js
++const SALT = "u893qhdnk&892jn9";
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
+      model
+        .getUser(email)
+        .then(dbUser => {
+          const hashedPassword = crypto
+            .createHash("sha256")
++            .update(SALT + password)
+            .digest("hex");
+          if (dbUser.password !== hashedPassword) {
+            throw new Error("Password mismatch");
+          } else {
+          // ...
+```
+
+</details>
