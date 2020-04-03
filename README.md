@@ -216,3 +216,79 @@ function post(request, response) {
 ```
 
 </details>
+
+## Random salt
+
+We still have a security flaw here: we're using the same salt for every password, which means our hashes won't be unique. If you create two new users with the same password you should see the same hash in `db.json`. This is a problem because as soon as a hacker cracks one hash they'll have access to all the duplicate passwords.
+
+We can solve this problem by creating a _random_ salt to add to each password. This will ensure that each hash is totally unique, even if the password is the same.
+
+This has an additional complication: we have to store the random salt along with the password so that we can use the salt to create the comparison hash when a user logs in. We can concatenate the salt onto the final hash string:
+
+```js
+const SALT = crypto.randomBytes(12).toString("hex"); // random 12 byte string
+const hash = crypto
+  .createHash("sha256")
+  .update(SALT + password) // create a unique hash using the random salt
+  .digest("hex");
+const hashToSave = SALT + "." + password;
+```
+
+Then when we retrieve the password from the database we can split the hash on the `.` to get the salt and hash.
+
+### Random salt challenge
+
+- Edit the `post` function in `workshop/handlers/signUp.js`
+- Add a random string to the password before you hash it so you you're storing a unique hash in the database
+- Edit the `post` function in `workshop/handlers/logIn.js`
+- Get the salt + hash from the database, then use the salt to hash the submitted password and compare it to the stored hash
+
+<details>
+<summary>Quick solution</summary>
+
+```diff
+// signUp.js
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
++     const SALT = crypto.randomBytes(12).toString("hex");
+      const hashedPassword = crypto
+        .createHash("sha256")
+        .update(SALT + password)
+        .digest("hex");
+      model
++       .createUser({ email, password: SALT + "." + hashedPassword })
+        // ...
+```
+
+```diff
+// logIn.js
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
++     const hashPlusSalt = dbUser.password.split(".");
++     const SALT = hashPlusSalt[0];
++     const storedPassword = hashPlusSalt[1];
+      model
+        .getUser(email)
+        .then(dbUser => {
+          const hashedPassword = crypto
+            .createHash("sha256")
+            .update(SALT + password)
+            .digest("hex");
++         if (storedPassword !== hashedPassword) {
+            throw new Error("Password mismatch");
+          } else {
+          // ...
+```
+
+</details>
+
