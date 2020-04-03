@@ -4,7 +4,7 @@
   "description": "Learn the basics of securely storing user passwords on your Node server.",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon solution-bcrypt/server.js --ignore **/*.json"
+    "dev": "nodemon workshop/server.js --ignore **/*.json"
   },
   "keywords": [],
   "author": "Oliver Phillips <hello@oliverjam.es> (https://oliverjam.es/)",
