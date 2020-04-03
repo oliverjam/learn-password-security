@@ -166,9 +166,11 @@ We can prevent the use of rainbow tables by "salting" our passwords. This means 
 For example "cupcake" hashed using SHA256 is always `"b0eaeafbf3..."`. That means the hash can be published in rainbow tables. If we instead add a salt to the password to make `"kjnafn9nbjka2kjn.cupcake"` then the hash will be `"6bc8571635..."`, which won't appear in any rainbow table.
 
 - Edit the `post` function in `workshop/handlers/signUp.js`
-- Add a random string to the password before you hash it so you you're storing a unique hash in the database
+  - Add a random string to the password before you hash it so you you're storing a unique hash in the database
 - Edit the `post` function in `workshop/handlers/logIn.js`
-- Add a random string to the password before you hash it so you can correctly compare it to the hash in the database
+  - Add a random string to the password before you hash it so you can correctly compare it to the hash in the database
+
+**Note**: you have to use the same salt each time, otherwise your comparison will fail.
 
 <details>
 <summary>Quick solution</summary>
