@@ -292,3 +292,78 @@ function post(request, response) {
 
 </details>
 
+## BCrypt
+
+It's annoying having to implement all this stuff ourselves. It's likely we'll mess something up. There are also better-designed algorithms for password hashing. A popular one is called BCrypt. It's designed specifically for passwords, and (in computer terms) is _very_ slow. This isn't noticeable to users but makes a brute-force attacker much more difficult for a hacker.
+
+BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. A BCrypt hash of "cupcake" is a few different bits of information separated by `$` or `.` symbols:
+
+```
+$2a$10$MFOIdSobXg.x3ZUfrB2VX.C49DYocYGtBQVJ78ZsC2YwgrALIn1oC
+```
+
+### `bcryptjs` challenge
+
+We'll be using the [`bcryptjs`](https://www.npmjs.com/package/bcryptjs) library (avoid the `bcrypt` one, which has C++ dependencies and doesn't work on some systems).
+
+**Important**: since BCrypt is supposed to be slow the implementation is _asynchronous_. So the library's methods return promises. For example:
+
+```js
+bcrypt
+  .genSalt(10)
+  .then(salt => bcrypt.hash(password, salt))
+  .then(hash => console.log(hash));
+```
+
+- Run `npm install bcryptjs` to install the library
+- Use `bcrypt.genSalt()` and `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
+- Use `bcrypt.compare()` to compare the saved and submitted passwords in `logIn.js`
+
+<details>
+<summary>Quick solution</summary>
+
+```diff
+//signUp.js
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
++     bcrypt
++       .genSalt(10)
++       .then(salt => bcrypt.hash(password, salt))
++       .then(hash => model.createUser({ email, password: hash }))
+        .then(() => {
+          response.writeHead(200, { "content-type": "text/html" });
+          response.end(`
+            <h1>Thanks for signing up, ${email}</h1>
+          `);
+        })
+        // ...
+```
+
+```diff
+//logIn.js
+
+function post(request, response) {
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
+      model
+        .getUser(email)
++       .then(dbUser => bcrypt.compare(password, dbUser.password))
++       .then(match => {
++         if (!match) throw new Error("Password mismatch");
+          response.writeHead(200, { "content-type": "text/html" });
+          response.end(`
+            <h1>Welcome back, ${email}</h1>
+          `);
+        })
+        // ...
+```
+
+</details>
