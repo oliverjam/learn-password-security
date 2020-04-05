@@ -9,7 +9,7 @@ We'll look at why you shouldn't store passwords as plaintext, what hashing and s
 1. Clone this repo
 1. Run `npm install` to install dependencies
 1. Run `npm run dev` to start the development server
-1. Open `workshop/server.js` in your browser
+1. Open http://localhost:3000 in your browser
 
 ### Project structure
 
@@ -313,8 +313,8 @@ We'll be using the [`bcryptjs`](https://www.npmjs.com/package/bcryptjs) library 
 ```js
 bcrypt
   .genSalt(10)
-  .then(salt => bcrypt.hash(password, salt))
-  .then(hash => console.log(hash));
+  .then((salt) => bcrypt.hash(password, salt))
+  .then((hash) => console.log(hash));
 // "$2a$10$MFOIdSobXg.x3ZUfrB2VX.C49DYocYGtBQVJ78ZsC2YwgrALIn1oC"
 // hash contains a few different chunks of info separated by $ or .
 ```
