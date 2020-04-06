@@ -57,7 +57,7 @@ const hashedPassword = crypto
 // "f52fbd32b2b3b86ff88ef6c490628285f482af15ddcb29541f94bcf526a3f6c7"
 ```
 
-We have to specify which algorithm we want to use (`"sha256"`) and what encoding the result (or "digest") string has (hexdecimal).
+We have to specify which algorithm we want to use (`"sha256"`) and what encoding the result (or "digest") string has (hexadecimal).
 
 To verify a user we can hash the password when they sign up, then store the hash. Then when a user logs in we hash the submitted password, find a matching user in the database then compare the two hashes to see if they match. Here's a simplified example:
 
