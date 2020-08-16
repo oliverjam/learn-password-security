@@ -233,7 +233,7 @@ const hash = crypto
   .createHash("sha256")
   .update(SALT + password) // create a unique hash using the random salt
   .digest("hex");
-const hashToSave = SALT + "." + password;
+const hashToSave = SALT + "." + hash;
 ```
 
 Then when we retrieve the password from the database we can split the hash on the `.` to get the salt and hash.
@@ -319,7 +319,7 @@ bcrypt
 // hash contains a few different chunks of info separated by $ or .
 ```
 
-BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. You can store the hash that `bcrypt.createHash()` gives you as is.
+BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. You can store the hash that `bcrypt.hash()` gives you as is.
 
 - Run `npm install bcryptjs` to install the library
 - Use `bcrypt.genSalt()` and `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
