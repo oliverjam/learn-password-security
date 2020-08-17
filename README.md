@@ -323,7 +323,8 @@ BCrypt automatically stores the salt as part of the hash, so you don't need to i
 
 - Run `npm install bcryptjs` to install the library
 - Use `bcrypt.genSalt()` and `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
-- Use `bcrypt.compare()` to compare the saved and submitted passwords in `logIn.js`
+- Use `bcrypt.compare()` to compare the submitted password to the stored hash in `logIn.js`
+   - The first argument is the string to compare, the second argument is the hash to test against
 
 <details>
 <summary>Quick solution</summary>
