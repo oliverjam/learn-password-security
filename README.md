@@ -6,7 +6,7 @@ We'll look at why you shouldn't store passwords as plaintext, what hashing and s
 
 ## Setup
 
-1. Clone this repo
+1. Clone this repo and `cd` into the directory
 1. Run `npm install` to install dependencies
 1. Run `npm run dev` to start the development server
 1. Open http://localhost:3000 in your browser
@@ -43,30 +43,39 @@ We have a problem: storing the password as plaintext is bad, but we need to be a
 
 ## Hashing passwords
 
-Hashing is when you use a mathematical process (algorithm) to convert a string into a different one. They are designed to be one-way: it should be very difficult to reverse the process.
+Hashing is when you use a mathematical process (algorithm) to convert a string into a different one. Hashes are:
 
-The process is also "deterministic", which means **hashing the same string always gives the same result**. This is how we can still verify users: if we hash the password `"hunter2"` we'll always get the same result. This is how we'd do it with Node's built-in `crypto` module:
+- One-way: it should be impossible to reverse the process.
+- Deterministic: hashing the same string always gives the same result.
+- Unique: hashing a different string should never create the same result.
+
+For example hashing "hunter2" with the popular "sha256" algorithm always gives us "f52fbd32b2b3b86ff88ef6c490628285f482af15ddcb29541f94bcf526a3f6c7". There is no way to turn that hash _back_ into "hunter2" again, so it's safe to store. No other password will create an identical hash.
+
+When a new user signs up we hash their password and store the hash in the database. When they next log in we ask for their password again, hash it again, then compare that hash to the one we have stored. The hashes will only match if the input password was the same both times.
+
+Here's how we'd create the initial hash using the built-in Node `crypto` module:
 
 ```js
 const crypto = require("crypto");
 
+const password = "hunter2";
+
 const hashedPassword = crypto
   .createHash("sha256")
-  .update("hunter2")
+  .update(password)
   .digest("hex");
 // "f52fbd32b2b3b86ff88ef6c490628285f482af15ddcb29541f94bcf526a3f6c7"
 ```
 
 We have to specify which algorithm we want to use (`"sha256"`) and what encoding the result (or "digest") string has (hexadecimal).
 
-To verify a user we can hash the password when they sign up, then store the hash. Then when a user logs in we hash the submitted password, find a matching user in the database then compare the two hashes to see if they match. Here's a simplified example:
+Here's roughly how we would verify a user when they signed in again later:
 
 ```js
 const savedUser = model.getUser(email); // this would normally be async
 const savedHashedPassword = savedUser.password;
 if (hashedPassword !== savedHashedPassword) {
-  response.writeHead(401);
-  response.end("Unauthenticated");
+  response.status(401).send("Unauthenticated");
 } else {
   // they are logged in
 }
@@ -79,7 +88,7 @@ First we need to stop saving users' passwords in plaintext.
 - Edit the `post` function in `workshop/handlers/signUp.js`
 - We want to hash the submitted password using the built-in `crypto.createHash()` method
 - Store the hash instead of the plaintext password in the database
-- Create a new user to test: you should see a random string password appear in `db.json`
+- Create a new user at `/sign-up`: you should see a random string password appear in `db.json`
   ```json
   {
     "users": [
@@ -92,6 +101,27 @@ First we need to stop saving users' passwords in plaintext.
   }
   ```
 
+<details>
+<summary>Quick solution</summary>
+
+```js
+// signUp.js
+
+function post(request, response) {
+  const { email, password } = request.body;
+  const hashedPassword = crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
+  model.createUser({ email, password: hashedPassword }).then(() => {
+    response.send(`<h1>Welcome ${email}</h1>`);
+  });
+  // plus error handling
+}
+```
+
+</details>
+
 Then we need to make our logging in comparison work.
 
 - Edit the `post` function in `workshop/handlers/logIn.js`
@@ -101,54 +131,24 @@ Then we need to make our logging in comparison work.
 <details>
 <summary>Quick solution</summary>
 
-```diff
-// signUp.js
-function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-+      const hashedPassword = crypto
-+        .createHash("sha256")
-+        .update(password)
-+        .digest("hex");
-      model
-+        .createUser({ email, password: hashedPassword })
-        .then(() => {
-          response.writeHead(200, { "content-type": "text/html" });
-          response.end(`
-           <h1>Thanks for signing up, ${email}</h1>
-          `);
-        })
-        // plus error handling
-```
-
-```diff
+```js
 // logIn.js
+
 function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-      model
-        .getUser(email)
-        .then(dbUser => {
-+          const hashedPassword = crypto
-+            .createHash("sha256")
-+            .update(password)
-+            .digest("hex");
-+          if (dbUser.password !== hashedPassword) {
-+            throw new Error("Password mismatch");
-+          } else {
-            response.writeHead(200, { "content-type": "text/html" });
-            response.end(`
-            <h1>Welcome back, ${email}</h1>
-          `);
-          }
-        })
-        // plus error handling
+  const { email, password } = request.body;
+  model.getUser(email).then((user) => {
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(password)
+      .digest("hex");
+    if (user.password !== hashedPassword) {
+      throw new Error("Password mismatch");
+    } else {
+      response.send(`<h1>Welcome back, ${email}</h1>`);
+    }
+  });
+  // plus error handling
+}
 ```
 
 </details>
@@ -157,7 +157,21 @@ function post(request, response) {
 
 There are still some issues with our hashed passwords. The only way for a hacker with a stolen database to figure out the passwords is with a "brute force" attack. This is where they use software to automatically try a huge list of possible passwords, hashing each one then comparing it to the passwords in the database.
 
-Remember a good hash algorithm is supposed to be slow. This limits a hacker who has stolen a database—the brute force attack will take a long time. One way around this is to use "rainbow tables". This is a pre-hashed list of common words so the hacker doesn't have to hash each password to find a match in the database.
+A good hash algorithm is deliberately quite slow. This limits a hacker who has stolen a database—the brute force attack will take a long time since they'll have to try thousands of passwords. Hackers can speed this process up by using "rainbow tables". This is a pre-hashed list of common words so the hacker doesn't have to hash each password to find a match in the database. For example instead of:
+
+```
+hash(password1) ---(slooow)---> "nkjadfjknadf2e" (no match)
+hash(password2) ---(slooow)---> "kmnsdnnmkd2eeb" (no match)
+...
+```
+
+They can skip the hashing part and just try the hashes directly:
+
+```
+"nkjadfjknadf2e" (no match)
+"kmnsdnnmkd2eeb" (no match)
+...
+```
 
 ### Salting challenge
 
@@ -165,59 +179,57 @@ We can prevent the use of rainbow tables by "salting" our passwords. This means 
 
 For example "cupcake" hashed using SHA256 is always `"b0eaeafbf3..."`. That means the hash can be published in rainbow tables. If we instead add a salt to the password to make `"kjnafn9nbjka2kjn.cupcake"` then the hash will be `"6bc8571635..."`, which won't appear in any rainbow table.
 
-- Edit the `post` function in `workshop/handlers/signUp.js`
-  - Add a long string to the password before you hash it so you you're storing a unique hash in the database
-- Edit the `post` function in `workshop/handlers/logIn.js`
-  - Add the same string to the password before you hash it so you can correctly compare it to the hash in the database
+- Add a long string to the password before you hash it in `workshop/handlers/signUp.js`
 
-**Note**: you have to use the same salt each time, otherwise your comparison will fail.
+  <details>
+  <summary>Quick solution</summary>
 
-<details>
-<summary>Quick solution</summary>
+  ```js
+  // signUp.js
 
-```diff
-// signUp.js
-+const SALT = "u893qhdnk&892jn9";
+  const SALT = "u893qhdnk&892jn9";
 
-function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
+  function post(request, response) {
+    const { email, password } = request.body;
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(SALT + password)
+      .digest("hex");
+    model.createUser({ email, password: hashedPassword });
+    // ...
+  }
+  ```
+
+  </details>
+
+- Add the same string to the password before you hash it in `workshop/handlers/logIn.js` so you can correctly compare it to the hash in the database
+
+  <details>
+  <summary>Quick solution</summary>
+
+  ```js
+  // logIn.js
+  const SALT = "u893qhdnk&892jn9";
+
+  function post(request, response) {
+    const { email, password } = request.body;
+    model.getUser(email).then((user) => {
       const hashedPassword = crypto
         .createHash("sha256")
-+        .update(SALT + password)
+        .update(SALT + password)
         .digest("hex");
-      model
-        .createUser({ email, password: hashedPassword })
+      if (user.password !== hashedPassword) {
+        throw new Error("Password mismatch");
+      } else {
         // ...
-```
+      }
+    });
+  }
+  ```
 
-```diff
-// logIn.js
-+const SALT = "u893qhdnk&892jn9";
+  </details>
 
-function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-      model
-        .getUser(email)
-        .then(dbUser => {
-          const hashedPassword = crypto
-            .createHash("sha256")
-+            .update(SALT + password)
-            .digest("hex");
-          if (dbUser.password !== hashedPassword) {
-            throw new Error("Password mismatch");
-          } else {
-          // ...
-```
-
-</details>
+You have to use the **same salt** each time, otherwise your comparison will fail.
 
 ## Random salt
 
@@ -254,48 +266,46 @@ const hash = hashArray[1];
 <details>
 <summary>Quick solution</summary>
 
-```diff
+```js
 // signUp.js
 
 function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-+     const SALT = crypto.randomBytes(12).toString("hex");
-      const hashedPassword = crypto
-        .createHash("sha256")
-        .update(SALT + password)
-        .digest("hex");
-      model
-+       .createUser({ email, password: SALT + "." + hashedPassword })
-        // ...
+  const { email, password } = request.body;
+  const salt = crypto.randomBytes(12).toString("hex");
+  const hashedPassword = crypto
+    .createHash("sha256")
+    .update(salt + password)
+    .digest("hex");
+  model
+    .createUser({ email, password: salt + "." + hashedPassword })
+    .then(() => {
+      response.send(`<h1>Welcome ${email}</h1>`);
+    });
+  // ...
+}
 ```
 
-```diff
+```js
 // logIn.js
 
 function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-+     const hashPlusSalt = dbUser.password.split(".");
-+     const SALT = hashPlusSalt[0];
-+     const storedPassword = hashPlusSalt[1];
-      model
-        .getUser(email)
-        .then(dbUser => {
-          const hashedPassword = crypto
-            .createHash("sha256")
-            .update(SALT + password)
-            .digest("hex");
-+         if (storedPassword !== hashedPassword) {
-            throw new Error("Password mismatch");
-          } else {
-          // ...
+  const { email, password } = request.body;
+  model.getUser(email).then((user) => {
+    const hashAndSalt = user.password.split(".");
+    const storedSalt = hashAndSalt[0];
+    const storedPassword = hashAndSalt[1];
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(storedSalt + password)
+      .digest("hex");
+    if (storedPassword !== hashedPassword) {
+      throw new Error("Password mismatch");
+    } else {
+      response.send(`<h1>Welcome back, ${email}</h1>`);
+    }
+  });
+  // ...
+}
 ```
 
 </details>
@@ -308,69 +318,62 @@ It's annoying having to implement all this stuff ourselves. It's likely we'll me
 
 We'll be using the [`bcryptjs`](https://www.npmjs.com/package/bcryptjs) library (avoid the `bcrypt` one, which has C++ dependencies and doesn't work on some systems).
 
-**Important**: since BCrypt is supposed to be slow the implementation is _asynchronous_. So the library's methods return promises. For example:
+Since BCrypt is supposed to be slow the implementation is _asynchronous_. So the library's methods return promises. It has a method for generating a hash. This takes the string to hash and a number representing how strong the salt should be (the higher the number the longer it will take to hash):
 
 ```js
-bcrypt
-  .genSalt(10)
-  .then((salt) => bcrypt.hash(password, salt))
-  .then((hash) => console.log(hash));
+bcrypt.hash(password, 10).then((hash) => console.log(hash));
 // "$2a$10$MFOIdSobXg.x3ZUfrB2VX.C49DYocYGtBQVJ78ZsC2YwgrALIn1oC"
-// hash contains a few different chunks of info separated by $ or .
 ```
 
-BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself. You can store the hash that `bcrypt.hash()` gives you as is.
+It also has a method for comparing a string to a stored hash. This takes the (unhashed) string to compare as the first argument and the hash as the second argument:
+
+```js
+bcrypt.compare("hunter2", storedHash).then((match) => console.log(match));
+// Logs: true if they match, false if not
+```
+
+BCrypt automatically stores the salt as part of the hash, so you don't need to implement that part yourself.
 
 - Run `npm install bcryptjs` to install the library
-- Use `bcrypt.genSalt()` and `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
+- Use `bcrypt.hash()` to hash your password before saving to the DB in `signUp.js`
+  <details>
+  <summary>Quick solution</summary>
+
+  ```js
+  //signUp.js
+
+  function post(request, response) {
+    const { email, password } = request.body;
+    bcrypt
+      .hash(password, 10))
+      .then((hash) => model.createUser({ email, password: hash }))
+      .then(() => {
+        response.send(`<h1>Thanks for signing up, ${email}</h1>`);
+      });
+    // ...
+  }
+  ```
+
+  </details>
+
 - Use `bcrypt.compare()` to compare the submitted password to the stored hash in `logIn.js`
-   - The first argument is the string to compare, the second argument is the hash to test against
+  <details>
+  <summary>Quick solution</summary>
 
-<details>
-<summary>Quick solution</summary>
+  ```js
+  //logIn.js
 
-```diff
-//signUp.js
-
-function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-+     bcrypt
-+       .genSalt(10)
-+       .then(salt => bcrypt.hash(password, salt))
-+       .then(hash => model.createUser({ email, password: hash }))
-        .then(() => {
-          response.writeHead(200, { "content-type": "text/html" });
-          response.end(`
-            <h1>Thanks for signing up, ${email}</h1>
-          `);
-        })
-        // ...
-```
-
-```diff
-//logIn.js
-
-function post(request, response) {
-  getBody(request)
-    .then(body => {
-      const user = new URLSearchParams(body);
-      const email = user.get("email");
-      const password = user.get("password");
-      model
-        .getUser(email)
-+       .then(dbUser => bcrypt.compare(password, dbUser.password))
-+       .then(match => {
-+         if (!match) throw new Error("Password mismatch");
-          response.writeHead(200, { "content-type": "text/html" });
-          response.end(`
-            <h1>Welcome back, ${email}</h1>
-          `);
-        })
-        // ...
-```
+  function post(request, response) {
+    const { email, password } = request.body;
+    model
+      .getUser(email)
+      .then((dbUser) => bcrypt.compare(password, dbUser.password))
+      .then((match) => {
+        if (!match) throw new Error("Password mismatch");
+        response.send(`<h1>Welcome back, ${email}</h1>`);
+      });
+    // ...
+  }
+  ```
 
 </details>
