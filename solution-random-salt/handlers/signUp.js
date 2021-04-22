@@ -1,8 +1,10 @@
 const crypto = require("crypto");
+const getBody = require("../getBody");
 const model = require("../database/db");
 
 function get(request, response) {
-  response.send(`
+  response.writeHead(200, { "content-type": "text/html" });
+  response.end(`
     <h1>Create an account</h1>
     <form action="sign-up" method="POST">
       <label for="email">Email</label>
@@ -15,20 +17,39 @@ function get(request, response) {
 }
 
 function post(request, response) {
-  const { email, password } = request.body;
-  const salt = crypto.randomBytes(12).toString("hex");
-  const hashedPassword = crypto
-    .createHash("sha256")
-    .update(salt + password)
-    .digest("hex");
-  model
-    .createUser({ email, password: salt + "." + hashedPassword })
-    .then(() => {
-      response.send(`<h1>Welcome ${email}</h1>`);
+  getBody(request)
+    .then(body => {
+      const user = new URLSearchParams(body);
+      const email = user.get("email");
+      const password = user.get("password");
+      const SALT = crypto.randomBytes(12).toString("hex");
+      const hashedPassword = crypto
+        .createHash("sha256")
+        .update(SALT + password)
+        .digest("hex");
+      model
+        .createUser({ email, password: SALT + "." + hashedPassword })
+        .then(() => {
+          response.writeHead(200, { "content-type": "text/html" });
+          response.end(`
+           <h1>Thanks for signing up, ${email}</h1>
+          `);
+        })
+        .catch(error => {
+          console.error(error);
+          response.writeHead(500, { "content-type": "text/html" });
+          response.end(`
+            <h1>Something went wrong, sorry</h1>
+            <p>${error}</p> 
+          `);
+        });
     })
-    .catch((error) => {
+    .catch(error => {
       console.error(error);
-      response.send(`<h1>Something went wrong, sorry</h1>`);
+      response.writeHead(500, { "content-type": "text/html" });
+      response.end(`
+        <h1>Something went wrong, sorry</h1>
+      `);
     });
 }
 
